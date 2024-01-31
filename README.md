@@ -1,1 +1,1 @@
-Pythonilla tehty avaruuspeli. Peli vielä kesken.
+Ensimmäinen toimiva versio. Pythonilla tehty avaruuspeli, joka on vielä kesken.

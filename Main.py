@@ -137,7 +137,7 @@ class Game:
                     else:
                         self.lower_text_effect = 0
                         self.fade = True
-
+                #
                 self.lower_text.set_alpha(self.lower_text_effect)
                 self.screen.blit(self.logo, self.logo_rect)
                 self.screen.blit(self.upper_text, self.upper_text_rect)

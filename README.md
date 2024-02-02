@@ -1,1 +1,1 @@
-Ensimmäinen toimiva versio. Pythonilla tehty avaruuspeli, joka on vielä kesken.
+Pythonin pygame -kirjastolla luotu avaruusaiheinen peli.

@@ -1,171 +1,152 @@
-import random
-
 import pygame
 
-def pisteet():
-    aika = pygame.time.get_ticks() - aloita_aika
-    pisteet = fontti_alateksti.render(f"{aika}",False,(0,0,255))
-    pisteet_rect = pisteet.get_rect(center = (600,50))
-    naytto.blit(pisteet,pisteet_rect)
-
-pygame.init()
-
-# Näyön määritys
-naytto_leveys = 1200
-naytto_korkeus = 800
-naytto = pygame.display.set_mode((naytto_leveys, naytto_korkeus))
-
-# Logon ja taustan määritys
-logo = pygame.image.load("kuvat/logo.png").convert()
-logo_aloitusnaytto = pygame.image.load("kuvat/logo.png")
-tausta = pygame.image.load("kuvat/tausta.png").convert()
-raketti = pygame.image.load("kuvat/raketti.png").convert_alpha()
-tahti = pygame.image.load("kuvat/tahti.png").convert_alpha()
-meteoriitti = pygame.image.load("kuvat/kivi.png").convert_alpha()
-
-logo_muokattu = pygame.transform.scale(logo_aloitusnaytto, (300, 300))
-
-pygame.display.set_icon(logo)
-pygame.display.set_caption("Avaruuskilpa")
-
-fontti_ylateksti = pygame.font.Font("fontti/Super Disco Personal Use.ttf", 100)
-yla_teksti = fontti_ylateksti.render("Avaruuskilpa", True, (0, 0, 255))
-fontti_alateksti = pygame.font.Font("fontti/Super Disco Personal Use.ttf", 50)
-ala_teksti = fontti_alateksti.render("Aloita peli painamalla Spacebaria", True, (0, 0, 255))
+from Este import Este
+from Raketti import Raketti
 
 
-tausta1_rect = tausta.get_rect(topleft=(0, 0))
-tausta2_rect = tausta.get_rect(topleft=(0, -naytto_korkeus))
+class Game:
+    def __init__(self):
 
-kello = pygame.time.Clock()
+        pygame.init()
+        self.start_time = 0
+        self.player_score = 0
+        self.screen_width = 1200
+        self.screen_height = 800
+        self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
+        self.clock = pygame.time.Clock()
+        self.score_update_delay = 100
+        self.font = pygame.font.Font("fontti/Super Disco Personal Use.ttf", 50)
+        self.background = pygame.image.load("kuvat/tausta.png").convert()
+        self.background_rects = [self.background.get_rect(topleft=(0, 0)),
+                                 self.background.get_rect(topleft=(0, -self.screen_height))]
+        self.lower_text_effect = 0
+        self.fade_speed = 100 / 30
+        self.fade = True
+        self.running = True
+        self.game_elements()
 
-raketti_rect = raketti.get_rect(topleft=(250, 400))
-raketti_x = 550
-raketti_y = 630
+    def game_elements(self):
 
-tahti_rect = tahti.get_rect(topleft=(0, -300))
-meteoriitti_rect = meteoriitti.get_rect(topleft=(400, -500))
+        self.raketti = Raketti("kuvat/raketti.png", (550, 630))
+        self.tahti = Este("kuvat/tahti.png", self.screen_width, self.screen_height)
+        self.meteoriitti = Este("kuvat/kivi.png", self.screen_width, self.screen_height)
+        self.score_update = pygame.time.get_ticks()
+        self.game_on = False
+        # Load texts and logo
+        self.font = pygame.font.Font("fontti/Super Disco Personal Use.ttf", 60)
+        self.logo = pygame.image.load("kuvat/logo.png")
+        self.logo_rect = self.logo.get_rect(center=(self.screen_width // 2, self.screen_height // 2))
+        self.upper_text = self.font.render("Avaruuskilpa", True, (4, 11, 209))
+        self.lower_text = self.font.render("Aloita peli painamalla Spacebaria", True, (4, 11, 209))
+        self.upper_text_rect = self.upper_text.get_rect(center=(self.screen_width // 2, self.screen_height - 700))
+        self.lower_text_rect = self.lower_text.get_rect(center=(self.screen_width // 2, self.screen_height - 100))
 
-teksti_alpha = 0
-fade_nopeus = 100 / 30
+    # Liikkuva tausta
+    def move_background(self):
+        for rect in self.background_rects:
+            rect.y += 2
+            if rect.top >= self.screen_height:
+                rect.y = -self.screen_height
 
-liikuta_vasen = 0
-liikuta_oikea = 0
-liikuta_ylos = False
-liikuta_alas = False
-fade = True
+    def update_player_score(self):
+        self.current_time = pygame.time.get_ticks() - self.start_time
+        if self.current_time - self.score_update > self.score_update_delay:
+            self.player_score += 1
+            self.score_update = self.current_time
+        self.player_score_surf = self.font.render(f"Pisteet: {self.player_score}", False, (4, 11, 209))
+        self.points_rect = self.player_score_surf.get_rect(center=(600, 50))
 
-peli_kaynnissa = False
-#aloita_aika = 0
-pelaaja_pisteet = 0
+    def reset_game(self):
+        self.player_score = 0
+        self.move_left = 0
+        self.move_right = 0
+        self.raketti.rect.topleft = (550, 630)
+        self.tahti.reset_position()
+        self.meteoriitti.reset_position()
+        self.game_on = True
 
-while True:
+    def run(self):
+        while self.running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
 
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        if not self.game_on:
+                            self.reset_game()
 
-        if event.type == pygame.KEYDOWN:
-            if not peli_kaynnissa and event.key == pygame.K_SPACE:
-                peli_kaynnissa = True
-                aloita_aika = pygame.time.get_ticks()
+                    if self.game_on:
+                        if event.key == pygame.K_LEFT:
+                            self.move_left = -5
+                        elif event.key == pygame.K_RIGHT:
+                            self.move_right = 5
 
-                meteoriitti_rect.top = 10
-            if event.key == pygame.K_LEFT:
-                liikuta_vasen = - 5
+                elif event.type == pygame.KEYUP:
+                    if event.key == pygame.K_LEFT:
+                        self.move_left = 0
+                    elif event.key == pygame.K_RIGHT:
+                        self.move_right = 0
 
-            elif event.key == pygame.K_RIGHT:
-                liikuta_oikea = +5
+            self.move_background()
+            self.screen.blit(self.background, self.background_rects[0])
+            self.screen.blit(self.background, self.background_rects[1])
 
-        if event.type == pygame.KEYUP:
-            if event.key == pygame.K_LEFT:
-                liikuta_vasen = 0
-            if event.key == pygame.K_RIGHT:
-                liikuta_oikea = 0
+            if self.game_on:
+                # print("käynnissä")
+                self.raketti.update(self.move_left, self.move_right, self.screen_width)
+                self.tahti.update()
+                self.meteoriitti.update()
+                self.update_player_score()
 
-        if fade:
-            if teksti_alpha < 255:
-                teksti_alpha += fade_nopeus
+                if self.raketti.rect.colliderect(self.tahti.rect):
+                    # Collision occurred, handle it here
+                    self.player_score += 10  # Increase the score or do any other action
+                    self.tahti.reset_position()  # Reset the position of tahti
+
+                if self.raketti.rect.colliderect(self.meteoriitti.rect):
+                    # Collision occurred, handle it here
+                    self.game_on = False
+                    self.player_score = 0
+                    self.move_left = 0
+                    self.move_right = 0
+                    # Reset the position of tahti
+
+                self.screen.blit(self.raketti.image, self.raketti.rect)
+                self.screen.blit(self.tahti.image, self.tahti.rect)
+                self.screen.blit(self.meteoriitti.image, self.meteoriitti.rect)
+                self.screen.blit(self.player_score_surf, self.points_rect)
+
+
+
+
+
+
+
             else:
-                teksti_alpha = 255
-                fade = False
-        else:
-            if teksti_alpha > 0:
-                teksti_alpha -= fade_nopeus
-            else:
-                teksti_alpha = 0
-                fade = True
+                # Render starting screen elements if the game is not running.
+                if self.fade:
+                    if self.lower_text_effect < 255:
+                        self.lower_text_effect += self.fade_speed
+                    else:
+                        self.lower_text_effect = 255
+                        self.fade = False
+                else:
+                    if self.lower_text_effect > 0:
+                        self.lower_text_effect -= self.fade_speed
+                    else:
+                        self.lower_text_effect = 0
+                        self.fade = True
+
+                self.lower_text.set_alpha(self.lower_text_effect)
+                self.screen.blit(self.logo, self.logo_rect)
+                self.screen.blit(self.upper_text, self.upper_text_rect)
+                self.screen.blit(self.lower_text, self.lower_text_rect)
+
+            self.clock.tick(60)
+            pygame.display.update()
 
 
-
-    tausta1_rect.y += 1
-    tausta2_rect.y += 1
-
-    if tausta1_rect.top >= naytto_korkeus:
-        tausta1_rect.y = -naytto_korkeus
-
-    if tausta2_rect.top >= naytto_korkeus:
-        tausta2_rect.y = -naytto_korkeus
-
-    ala_teksti.set_alpha(teksti_alpha)
-
-    if peli_kaynnissa:
-
-        naytto.blit(tausta, tausta1_rect)
-        naytto.blit(tausta, tausta2_rect)
-
-        pisteet_teksti = fontti_alateksti.render(f"Pisteet: {pelaaja_pisteet}", False, (0, 0, 255))
-
-        naytto.blit(pisteet_teksti, (10, 10))
-
-
-
-        naytto.blit(raketti, raketti_rect)
-        raketti_x += liikuta_vasen + liikuta_oikea
-        raketti_rect.topleft = (raketti_x, raketti_y)
-
-        if raketti_rect.x <0:
-            raketti_rect.x = 1125
-
-        if raketti_rect.x > 1200:
-            raketti_rect.x = 0
-
-        tahti_rect.y += 6
-        if tahti_rect.top > naytto_korkeus:
-            tahti_rect.x = random.randint(0, naytto_leveys - tahti.get_width())
-            tahti_rect.y = -tahti.get_height()
-
-        meteoriitti_rect.y += 6
-        if meteoriitti_rect.top > naytto_korkeus:
-            meteoriitti_rect.x = random.randint(0, naytto_leveys - meteoriitti.get_width())
-            meteoriitti_rect.y = -meteoriitti.get_height()
-
-        if meteoriitti_rect.colliderect(raketti_rect):
-            peli_kaynnissa = False
-
-        if tahti_rect.colliderect(raketti_rect):
-            pelaaja_pisteet +=100
-            tahti_rect.x = random.randint(0, naytto_leveys- tahti.get_width())
-            tahti_rect.y =-tahti.get_height()
-
-
-
-        naytto.blit(meteoriitti, meteoriitti_rect)
-
-        naytto.blit(tahti, tahti_rect)
-
-        naytto.blit(meteoriitti, meteoriitti_rect)
-
-
-
-    else:
-        pelaaja_pisteet =0
-        naytto.blit(tausta, tausta1_rect)
-        naytto.blit(tausta, tausta2_rect)
-        naytto.blit(yla_teksti, (300, 100))
-        naytto.blit(ala_teksti, (200, 600))
-        naytto.blit(logo_muokattu, (440, 250))
-
-    kello.tick(120)
-    pygame.display.update()
-
+if __name__ == "__main__":
+    game = Game()
+    game.run()
